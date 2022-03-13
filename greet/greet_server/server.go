@@ -7,6 +7,8 @@ import (
 	"google.golang.org/grpc"
 	"log"
 	"net"
+	"strconv"
+	"time"
 )
 
 type server struct{}
@@ -31,8 +33,8 @@ func main() {
 func (s server) Greet(context context.Context, request *greetpb.GreetRequest) (*greetpb.GreetResponse, error) {
 	fmt.Printf("Greet function was invoked with %v\n", request)
 
-	firstName := request.Greeting.FirstName
-	lastName := request.GetGreeting().LastName
+	firstName := request.GetGreeting().GetFirstName()
+	lastName := request.GetGreeting().GetLastName()
 
 	result := firstName + " " + lastName
 
@@ -41,9 +43,21 @@ func (s server) Greet(context context.Context, request *greetpb.GreetRequest) (*
 	return response, nil
 }
 
-func (s server) GreetManyTimes(request *greetpb.GreetManyTimesRequest, timesServer greetpb.GreetService_GreetManyTimesServer) error {
-	//TODO implement me
-	panic("implement me")
+func (*server) GreetManyTimes(request *greetpb.GreetManyTimesRequest, stream greetpb.GreetService_GreetManyTimesServer) error {
+	fmt.Printf("GreetManyTimes function was invoked with: %v\n", request)
+
+	firstName := request.GetGreeting().GetFirstName()
+	lastName := request.GetGreeting().GetLastName()
+
+	for i := 0; i < 10; i++ {
+		result := strconv.Itoa(i) + ": " + firstName + " " + lastName
+		response := &greetpb.GreetManytimesResponse{Result: result}
+		stream.SendMsg(response)
+		//TODO: research: time changing does not affect
+		time.Sleep(5 * time.Second)
+	}
+
+	return nil
 }
 
 func (s server) LongGreet(greetServer greetpb.GreetService_LongGreetServer) error {

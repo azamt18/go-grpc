@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/simplesteph/grpc-go-course/greet/greetpb"
 	"google.golang.org/grpc"
+	"io"
 	"log"
 )
 
@@ -27,13 +28,13 @@ func main() {
 	//fmt.Printf("created client: %f", c)
 
 	makeUnaryCall(c)
+	makeServerStreamingCall(c)
 }
 
 func makeUnaryCall(c greetpb.GreetServiceClient) {
 	fmt.Printf("Starting to do a unary rpc\n")
 
-	// prepare request
-	//c.Greet(ctx context.Context, in *GreetRequest, opts ...grpc.CallOption) (*GreetResponse, error)
+	// prepare unary request
 	req := &greetpb.GreetRequest{
 		Greeting: &greetpb.Greeting{
 			FirstName: "John",
@@ -51,4 +52,42 @@ func makeUnaryCall(c greetpb.GreetServiceClient) {
 
 	// handle res
 	log.Printf("Response from Greet: %v\n", res.Result)
+
+	log.Printf("\t End of unary call \n\n")
+}
+
+func makeServerStreamingCall(c greetpb.GreetServiceClient) {
+	fmt.Printf("Starting server streaming RPC\n")
+
+	// prepare streaming request
+	request := &greetpb.GreetManyTimesRequest{
+		Greeting: &greetpb.Greeting{
+			FirstName: "John",
+			LastName:  "Johnson",
+		},
+	}
+
+	// make a stream request
+	responseStream, error := c.GreetManyTimes(context.Background(), request)
+
+	// handle an error
+	if error != nil {
+		log.Fatalf("error while calling GreetManyTimes RPC: %v", error)
+	}
+
+	// handle responseStream
+	for {
+		message, error := responseStream.Recv()
+		if error == io.EOF {
+			// reached end of stream
+			break
+		}
+		if error != nil {
+			log.Fatalf("error while reading stream: %v", error)
+		}
+
+		log.Printf("Response from GreetManyTimes: %v", message.GetResult())
+	}
+
+	log.Printf("\t End of server streaming call \n\n")
 }
