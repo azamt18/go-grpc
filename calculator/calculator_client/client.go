@@ -7,6 +7,7 @@ import (
 	"grpc-go-course/calculator/calculatorpb"
 	"io"
 	"log"
+	"time"
 )
 
 func main() {
@@ -28,7 +29,8 @@ func main() {
 
 	//makeUnaryCall(calculatorServiceClient)
 	//makeServerStreamingCall(calculatorServiceClient)
-	makeClientStreamingCall(calculatorServiceClient)
+	//makeClientStreamingCall(calculatorServiceClient)
+	makeBidirectionalStreamingCall(calculatorServiceClient)
 }
 
 func makeUnaryCall(calcServiceClient calculatorpb.CalculatorServiceClient) {
@@ -111,4 +113,60 @@ func makeClientStreamingCall(c calculatorpb.CalculatorServiceClient) {
 	}
 
 	log.Printf("ComputeAverage response: %v", response.GetAverage())
+}
+
+func makeBidirectionalStreamingCall(c calculatorpb.CalculatorServiceClient) {
+	fmt.Printf("Starting a BiDi Streaming RPC...\n")
+
+	// create a stream by invoking the client
+	stream, error := c.FindMaximum(context.Background())
+	if error != nil {
+		log.Fatalf("error while creating stream: %v", error)
+		return
+	}
+
+	// create a wait channel to synchronize execution across goroutines
+	waitChannel := make(chan struct{})
+
+	// send a bunch of messages to the client (go routine)
+	go func() {
+		// function to send a bunch of messages
+
+		// prepare a streaming request
+		numbers := []int32{4, 7, 2, 19, 4, 6, 32}
+		for _, number := range numbers {
+			fmt.Printf("Sending message: %v \t", number)
+			stream.Send(&calculatorpb.FindMaximumRequest{
+				Number: number,
+			})
+			time.Sleep(1000 * time.Millisecond)
+		}
+
+		// close stream after sending messages
+		stream.CloseSend()
+	}()
+
+	// receive a bunch of messages from the server (go routine)
+	go func() {
+		// function to receive a bunch of messages
+		for {
+			res, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+
+			if err != nil {
+				log.Fatalf("error while reading a stream: %v", err)
+				break
+			}
+
+			fmt.Printf("Response: %v\n", res.GetMaximum())
+		}
+
+		// close channel after everything is done
+		close(waitChannel)
+	}()
+
+	// block until everything is done
+	<-waitChannel
 }

@@ -84,9 +84,30 @@ func (s server) LongGreet(stream greetpb.GreetService_LongGreetServer) error {
 	}
 }
 
-func (s server) GreetEveryone(everyoneServer greetpb.GreetService_GreetEveryoneServer) error {
-	//TODO implement me
-	panic("implement me")
+func (s server) GreetEveryone(stream greetpb.GreetService_GreetEveryoneServer) error {
+	fmt.Printf("GreetEveryone function was invoked with a streaming request\n")
+
+	for {
+		req, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			log.Fatalf("error while reading client stream: %v", err)
+		}
+
+		firstName := req.Greeting.GetFirstName()
+		lastName := req.Greeting.GetLastName()
+		result := "Hello " + firstName + " " + lastName + "!\n"
+
+		sendErr := stream.Send(&greetpb.GreetEveryoneResponse{
+			Result: result,
+		})
+		if sendErr != nil {
+			log.Fatalf("error while sending data to client: %v", sendErr)
+			return err
+		}
+	}
 }
 
 func (s server) GreetWithDeadline(context context.Context, request *greetpb.GreetWithDeadlineRequest) (*greetpb.GreetWithDeadlineResponse, error) {

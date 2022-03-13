@@ -13,6 +13,37 @@ import (
 
 type server struct{}
 
+func (s server) FindMaximum(stream calculatorpb.CalculatorService_FindMaximumServer) error {
+	fmt.Printf("Received FindMaximum streaming RPC\n")
+	numbers := make([]int32, 0)
+	max := int32(0) // smallest integer&non-negative number
+
+	for {
+		req, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			log.Fatalf("error while reading client stream: %v", err)
+		}
+
+		inputNumber := req.GetNumber()
+		numbers = append(numbers, inputNumber)
+		if inputNumber > max {
+			max = inputNumber
+		}
+
+		sendErr := stream.Send(&calculatorpb.FindMaximumResponse{
+			Maximum: max,
+		})
+		if sendErr != nil {
+			log.Fatalf("error while sending data to client: %v", sendErr)
+			return sendErr
+		}
+	}
+
+}
+
 func (s server) ComputeAverage(stream calculatorpb.CalculatorService_ComputeAverageServer) error {
 	fmt.Printf("Received ComputeAverage streaming RPC\n")
 	sum := int64(0)

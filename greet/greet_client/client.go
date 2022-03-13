@@ -125,3 +125,58 @@ func makeClientStreamingCall(c greetpb.GreetServiceClient) {
 
 	fmt.Printf("Closing a client streaming RPC\n")
 }
+
+func makeBidirectionalStreamingCall(c greetpb.GreetServiceClient) {
+	fmt.Printf("Starting a BiDi Streaming RPC...\n")
+
+	// create a stream by invoking the client
+	stream, error := c.GreetEveryone(context.Background())
+	if error != nil {
+		log.Fatalf("error while creating stream: %v", error)
+		return
+	}
+
+	// prepare a streaming request
+	requests := []*greetpb.GreetEveryoneRequest{
+		&greetpb.GreetEveryoneRequest{Greeting: &greetpb.Greeting{FirstName: "Mike"}},
+		&greetpb.GreetEveryoneRequest{Greeting: &greetpb.Greeting{FirstName: "John"}},
+		&greetpb.GreetEveryoneRequest{Greeting: &greetpb.Greeting{FirstName: "Carl"}},
+		&greetpb.GreetEveryoneRequest{Greeting: &greetpb.Greeting{FirstName: "Owen"}},
+	}
+
+	waitChannel := make(chan struct{})
+	// send a bunch of messages to the client (go routine)
+	go func() {
+		// function to send a bunch of messages
+		for _, req := range requests {
+			fmt.Printf("Sending message: %v\n", req)
+			stream.Send(req)
+			time.Sleep(1000 * time.Millisecond)
+		}
+		// close stream after sending messages
+		stream.CloseSend()
+	}()
+
+	// receive a bunch of messages from the server (go routine)
+	go func() {
+		// function to receive a bunch of messages
+		for {
+			res, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Fatalf("error while reading: %v", err)
+				break
+			}
+
+			fmt.Printf("Response: %v\n", res.GetResult())
+		}
+
+		// when all is done, close waiting channel ->  "<-waitChannel" will be unblocked
+		close(waitChannel)
+	}()
+
+	// block until everything is done
+	<-waitChannel
+}
