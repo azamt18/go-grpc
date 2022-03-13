@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/simplesteph/grpc-go-course/greet/greetpb"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"io"
 	"log"
 	"time"
@@ -30,7 +32,8 @@ func main() {
 
 	//makeUnaryCall(c)
 	//makeServerStreamingCall(c)
-	makeClientStreamingCall(c)
+	//makeClientStreamingCall(c)
+	makeUnaryWithDeadline(c, 1000*time.Millisecond)
 }
 
 func makeUnaryCall(c greetpb.GreetServiceClient) {
@@ -179,4 +182,33 @@ func makeBidirectionalStreamingCall(c greetpb.GreetServiceClient) {
 
 	// block until everything is done
 	<-waitChannel
+}
+
+func makeUnaryWithDeadline(c greetpb.GreetServiceClient, timeout time.Duration) {
+	fmt.Println("Starting to do a UnaryWithDeadline RPC...")
+	req := &greetpb.GreetWithDeadlineRequest{
+		Greeting: &greetpb.Greeting{
+			FirstName: "Stephane",
+			LastName:  "Maarek",
+		},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	res, err := c.GreetWithDeadline(ctx, req)
+	if err != nil {
+
+		statusErr, ok := status.FromError(err)
+		if ok {
+			if statusErr.Code() == codes.DeadlineExceeded {
+				fmt.Println("Timeout was hit! Deadline was exceeded")
+			} else {
+				fmt.Printf("unexpected error: %v", statusErr)
+			}
+		} else {
+			log.Fatalf("error while calling GreetWithDeadline RPC: %v", err)
+		}
+		return
+	}
+	log.Printf("Response from GreetWithDeadline: %v", res.Result)
 }
