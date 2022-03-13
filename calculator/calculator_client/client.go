@@ -26,9 +26,9 @@ func main() {
 
 	calculatorServiceClient := calculatorpb.NewCalculatorServiceClient(connection)
 
-	makeUnaryCall(calculatorServiceClient)
-
-	makeServerStreamingCall(calculatorServiceClient)
+	//makeUnaryCall(calculatorServiceClient)
+	//makeServerStreamingCall(calculatorServiceClient)
+	makeClientStreamingCall(calculatorServiceClient)
 }
 
 func makeUnaryCall(calcServiceClient calculatorpb.CalculatorServiceClient) {
@@ -86,4 +86,29 @@ func makeServerStreamingCall(calcServiceClient calculatorpb.CalculatorServiceCli
 	}
 
 	fmt.Printf("Closing PrimeDecomposition Server Streaming RPC...\n")
+}
+
+func makeClientStreamingCall(c calculatorpb.CalculatorServiceClient) {
+	fmt.Printf("Starting to do a ComputeAverage client streaming RPC... \n")
+
+	stream, error := c.ComputeAverage(context.Background())
+	numbers := []int64{1, 2, 3, 4}
+
+	// iterate over the request and send each message individually
+	for _, number := range numbers {
+		fmt.Printf("Sending number: %v\n", number)
+		stream.Send(&calculatorpb.ComputeAverageRequest{
+			Number: number,
+		})
+	}
+	if error != nil {
+		log.Fatalf("error while calling ComputeAverage: %v", error)
+	}
+
+	response, error := stream.CloseAndRecv()
+	if error != nil {
+		log.Fatalf("error while reading response from ComputeAverage: %v", error)
+	}
+
+	log.Printf("ComputeAverage response: %v", response.GetAverage())
 }
